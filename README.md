@@ -12,7 +12,7 @@
 - visibility polygon
 - shadow
 
-### C
+### Meltem Can
 - grid/waypoint graph
 - A* implementasyonu
 - düşman hareketi
