@@ -17,7 +17,7 @@
 - A* implementasyonu
 - düşman hareketi
 
-### D
+### Recep
 - player-wall collision
 - enemy-wall collision
 - circle vs segment
