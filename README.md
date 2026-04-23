@@ -1,6 +1,6 @@
 # Görev Listesi
 
-### A
+### Enes Çelik 
 - BSP tree build
 - segment split
 - classify point
