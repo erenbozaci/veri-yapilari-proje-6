@@ -6,7 +6,7 @@
 - classify point
 - BSP traversal
 
-### B 
+### Eren
 - ray casting
 - ray–segment intersection
 - visibility polygon
