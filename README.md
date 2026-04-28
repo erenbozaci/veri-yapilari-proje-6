@@ -23,7 +23,7 @@
 - circle vs segment
 - movement constraints
 
-### E 
+### Oğuzhan
 - game loop
 - input (keyboard)
 - canvas çizim
