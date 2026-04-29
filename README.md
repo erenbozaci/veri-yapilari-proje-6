@@ -1,3 +1,6 @@
+# Veri Yapıları ile BSP Ağacı Tabanlı Görüş Alanı ve Çarpışma Tespiti
+Bu projede, kuşbakışı (top-down) oynanan 2 boyutlu bir gizlilik oyunu sadeleştirilmiş bir model üzerinden geliştirilecektir. Oyuncu, duvarlar ve engeller içeren bir haritada hareket ederek hedef noktaya ulaşmaya çalışırken, haritada devriye gezen düşmanlara yakalanmamaya çalışacaktır.
+
 # Görev Listesi
 
 ### Enes Çelik 
