@@ -1,8 +1,9 @@
-class BSPNode {
+export class BSPNode {
     constructor(partition = null) {
         this.partition = partition; // Bu düğümü bölen çizgi
-        this.front = null;          // Ön taraf
-        this.back = null;           // Arka taraf
+        this.line = partition;      // Raycaster 'line' ismini bekliyor, eşitledik.
+        this.front = null;
+        this.back = null;
         this.segments = [];         // Düğümdeki çizgi/duvar parçaları
     }
 
@@ -10,5 +11,3 @@ class BSPNode {
         return this.front === null && this.back === null;
     }
 }
-
-module.exports = { BSPNode };
