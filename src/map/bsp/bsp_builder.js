@@ -40,7 +40,7 @@ export class BSPBuilder {
         if (segments.length === 0) return null;
 
         const node = new BSPNode(segments[0]);
-        node.segments.push(segments[0]); // ÖNEMLİ: Bölücü çizgiyi düğüme kaydettik!
+        node.segments.push(segments[0]);
 
         const frontSegments = [];
         const backSegments = [];
