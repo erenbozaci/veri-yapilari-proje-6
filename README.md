@@ -11,10 +11,10 @@ Bu projede, kuşbakışı (top-down) oynanan 2 boyutlu bir gizlilik oyunu sadele
 
 - Bu aşamada projenin temel veri yapısı olan Binary Space Partitioning (BSP) Tree mimarisi tamamen kurgulanmış ve işlevsel hale getirilmiştir. Yapılan çalışmalar     şunlardır:
   
-  - **BSP Tree Build (Ağaç Kurulumu)**: Rastgele sıralanmış duvar segmentlerini hiyerarşik bir düzene sokan rekürsif buildTree algoritması geliştirilmiştir. Bu sayede oyun evreni, sorguların O(log n) karmaşıklığında yapılabilmesi için optimize edilmiştir.
-  - **Segment Split (Duvar Bölme)**: Bir duvar segmentinin başka bir ayırıcı doğru tarafından kesilmesi durumunda, segmentin matematiksel olarak ikiye bölünmesini sağlayan splitSegment fonksiyonu yazılmıştır. Bu işlem sırasında kesişim noktaları hassas bir şekilde hesaplanarak veri bütünlüğü korunmuştur.
-  - **Classify Point (Nokta Sınıflandırma)**: Vektörel çarpım (cross product) metodu kullanılarak, bir noktanın veya segmentin ayırıcı çizgiye göre konumunu (FRONT, BACK, ON_LINE) belirleyen classifyPoint fonksiyonu implement edilmiştir.
-  - **BSP Traversal (Ağaç Gezinme)**: Bir noktanın veya ışının ağaç üzerindeki hangi yaprak düğümde (leaf node) olduğunu saptayan ve Eren’in Raycasting sistemi için temel teşkil eden gezinme algoritmaları (findLeaf, _traverse) tamamlanmıştır.
+  - **BSP Tree Build (Ağaç Kurulumu)**: Rastgele sıralanmış duvar segmentlerini hiyerarşik bir düzene sokan rekürsif **buildTree** algoritması geliştirilmiştir. Bu sayede oyun evreni, sorguların O(log n) karmaşıklığında yapılabilmesi için optimize edilmiştir.
+  - **Segment Split (Duvar Bölme)**: Bir duvar segmentinin başka bir ayırıcı doğru tarafından kesilmesi durumunda, segmentin matematiksel olarak ikiye bölünmesini sağlayan **splitSegment** fonksiyonu yazılmıştır. Bu işlem sırasında kesişim noktaları hassas bir şekilde hesaplanarak veri bütünlüğü korunmuştur.
+  - **Classify Point (Nokta Sınıflandırma)**: Vektörel çarpım (cross product) metodu kullanılarak, bir noktanın veya segmentin ayırıcı çizgiye göre konumunu (FRONT, BACK, ON_LINE) belirleyen **classifyPoint** fonksiyonu implement edilmiştir.
+  - **BSP Traversal (Ağaç Gezinme)**: Bir noktanın veya ışının ağaç üzerindeki hangi yaprak düğümde (leaf node) olduğunu saptayan ve Eren’in Raycasting sistemi için temel teşkil eden gezinme algoritmaları (**findLeaf, _traverse**) tamamlanmıştır.
 ### ⚠   Karşılaşılan Sorunlar ve Çözümler
   - **Hassasiyet Kaybı**: Geometrik hesaplamalarda JavaScript'in kayan nokta (floating point) hataları nedeniyle segmentlerin yanlış bölgelere atandığı fark edilmiştir. Bu sorun, tüm karşılaştırma işlemlerine 0.00001 (Epsilon) tolerans payı eklenerek çözülmüş ve sistemin kararlılığı artırılmıştır.
 
