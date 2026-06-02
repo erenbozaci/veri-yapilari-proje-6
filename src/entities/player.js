@@ -17,6 +17,7 @@ export class Player {
         if (keys["a"] || keys["ArrowLeft"]) moveX = -1;
         if (keys["d"] || keys["ArrowRight"]) moveX = 1;
 
+        // Çapraz hareketi normalize et
         if (moveX !== 0 && moveY !== 0) {
             const length = Math.sqrt(moveX * moveX + moveY * moveY);
             moveX /= length;
@@ -25,18 +26,30 @@ export class Player {
 
         // X Ekseni Hareketi ve Güvenli Fizik Kontrolü
         if (moveX !== 0) {
-            let nextX = this.pos.x + moveX * this.speed * dt;
-            let checkPos = { x: nextX, y: this.pos.y };
-            let safeX = handleWallCollisions(checkPos, this.radius, walls);
-            this.pos.x = safeX.x;
+            this.pos.x += moveX * this.speed * dt;
+            let safe = handleWallCollisions(this.pos, this.radius, walls);
+            this.pos.x = safe.x;
+            this.pos.y = safe.y;
         }
 
         // Y Ekseni Hareketi ve Güvenli Fizik Kontrolü
         if (moveY !== 0) {
-            let nextY = this.pos.y + moveY * this.speed * dt;
-            let checkPos = { x: this.pos.x, y: nextY };
-            let safeY = handleWallCollisions(checkPos, this.radius, walls);
-            this.pos.y = safeY.y;
+            this.pos.y += moveY * this.speed * dt;
+            let safe = handleWallCollisions(this.pos, this.radius, walls);
+            this.pos.x = safe.x;
+            this.pos.y = safe.y;
         }
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = "#2ecc71"; 
+        ctx.beginPath();
+        ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "black";
+        ctx.beginPath();
+        ctx.arc(this.pos.x, this.pos.y, 2, 0, Math.PI * 2);
+        ctx.fill();
     }
 }
