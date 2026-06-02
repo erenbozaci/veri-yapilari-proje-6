@@ -4,6 +4,8 @@ import { Raycaster } from "../vision/raycaster.js";
 import { FOV } from "../vision/fov.js";
 import { Enemy } from "../entities/enemy.js";
 import { Map } from "../map/map.js";
+import { findPathAStar } from "../ai/a_star.js";  //Meltem ekleme yapıldı
+import { buildNavigationGraph } from "../ai/graph.js";  //meltem ekleme yapıldı
 import Point from "../utils/classes/point.js";
 
 export class Game {
@@ -26,6 +28,7 @@ export class Game {
 
     this.mapInstance = new Map(this.width, this.height);
     this.walls = this.mapInstance.getWalls();
+    this.navGraph = buildNavigationGraph(this.walls, this.width, this.height);  //Meltem ekleme yapıldı
 
     // Enes Celik - BSP Agac Kurulumu
     const builder = new BSPBuilder();
@@ -147,102 +150,73 @@ export class Game {
         let safe = this._checkAndCorrectWallCollision({ x: this.player.pos.x, y: nextY }, this.player.radius);
         this.player.pos.y = safe.y;
     }
-
-    for (let enemy of this.enemies) {
+// meltem ekleme yapıldı-düşman yapay zekası
+for (let enemy of this.enemies) {
+        // 1. OYUNCU İLE ARAMIZDAKİ MESAFEYİ VE GÖRÜŞÜ ÖLÇ
         const dxToPlayer = this.player.pos.x - enemy.pos.x;
         const dyToPlayer = this.player.pos.y - enemy.pos.y;
         const distToPlayer = Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer);
+        
+        // Raycasting ile aramızda duvar var mı bakıyoruz (Enes'in yazdığı fonksiyon)
         const hasLOS = this._hasLineOfSight(enemy.pos, this.player.pos);
 
-        // --- YAPAY ZEKA HAFIZA VE KOSE TAKIP SISTEMI ---
-        if (hasLOS) {
-            if (distToPlayer < 240) {
-                enemy.state = "CHASE";
-                enemy.lastKnownPos = { x: this.player.pos.x, y: this.player.pos.y };
-                enemy.forgetTimer = 2.5; 
-            }
-        } else {
-            if (enemy.state === "CHASE") {
-                enemy.forgetTimer -= dt;
-                if (enemy.forgetTimer <= 0) {
-                    enemy.state = "PATROL";
-                    enemy.path = [];
-                    enemy.lastKnownPos = null;
-                }
-            }
-        }
-
-        if (distToPlayer > 350) { 
+        // 2. DURUM MAKİNESİ (STATE MACHINE) GEÇİŞLERİ
+        // Eğer oyuncu algılama çemberindeyse (240px) ve arada duvar yoksa (hasLOS): SALDIR!
+        if (distToPlayer < 240 && hasLOS) {
+            enemy.state = "CHASE";
+        } 
+        // Eğer oyuncu çok uzaklaştıysa (350px): PES ET VE DEVRİYEYE DÖN!
+        else if (distToPlayer > 350) { 
             if (enemy.state === "CHASE") {
                 enemy.state = "PATROL";
-                enemy.path = [];
-                enemy.lastKnownPos = null;
+                enemy.patrolTargetNodeId = null;
+                enemy.path = []; // Eski rotayı unut
             }
         }
 
-        // --- ASENKRON YAPAY ZEKA MIKROSERVIS BAGLANTI NOKTASI ---
+        // 3. A* BEYNİNİ ÇALIŞTIRMA ZAMANLAYICISI
+        // Her milisaniye hesap yapıp bilgisayarı dondurmamak için her 0.15 saniyede bir rota güncelliyoruz.
         enemy.pathUpdateTimer += dt;
-        if (enemy.pathUpdateTimer > 0.25 || enemy.path.length === 0) {
+        if (enemy.pathUpdateTimer > 0.15 || enemy.path.length === 0) {
             enemy.pathUpdateTimer = 0;
+            
+            // Düşmanın şu an haritada (Graph) bulunduğu en yakın düğümü bul
+            const startNode = this.navGraph.getClosestNode(enemy.pos.x, enemy.pos.y);
 
+            // Eğer kovalama modundaysak hedefe (oyuncuya) doğru rotayı hesapla
             if (enemy.state === "CHASE") {
-                if (!hasLOS && distToPlayer < 90 && enemy.lastKnownPos) {
-                    enemy.path = []; 
-                } else {
-                    const targetCoord = enemy.lastKnownPos ? enemy.lastKnownPos : this.player.pos;
-
-                    // ANA BELLEKTEN BAGIMSIZ HESAPLAMA: Arka planda calisan Python AI servisine istek atiliyor
-                    fetch('http://localhost:5000/get-path', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            start: { x: enemy.pos.x, y: enemy.pos.y },
-                            target: { x: targetCoord.x, y: targetCoord.y }
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === "success" && data.path.length > 0) {
-                            // Python servisinden asenkron gelen rotayi dusmana aktar
-                            enemy.path = data.path;
-                        }
-                    })
-                    .catch(err => {
-                        // Python servisi acik degilse oyun kitlenmesin diye acil acil acil yedek rota
-                        enemy.path = [{ x: targetCoord.x, y: targetCoord.y }];
-                    });
-                }
+                const targetNode = this.navGraph.getClosestNode(this.player.pos.x, this.player.pos.y);
+                const newPath = findPathAStar(this.navGraph, startNode, targetNode);
+                if (newPath) enemy.path = newPath;
             } 
+            // Eğer devriye modundaysak rastgele bir düğüm seçip oraya doğru rota hesapla
             else if (enemy.state === "PATROL" && (!enemy.path || enemy.path.length === 0)) {
-                const randomX = 100 + Math.random() * (this.width - 200);
-                const randomY = 100 + Math.random() * (this.height - 200);
-                enemy.path = [{ x: randomX, y: randomY }];
+                const nodeIds = Array.from(this.navGraph.nodes.keys());
+                if (nodeIds.length > 0) {
+                    enemy.patrolTargetNodeId = nodeIds[Math.floor(Math.random() * nodeIds.length)];
+                    const newPath = findPathAStar(this.navGraph, startNode, enemy.patrolTargetNodeId);
+                    if (newPath) enemy.path = newPath;
+                }
             }
         }
 
-        // --- HAREKET VE YONLENDIRME ---
+        // 4. BULUNAN ROTADA (WAYPOINT) YUMUŞAKÇA SÜZÜLME (HAREKET)
         let eMoveX = 0, eMoveY = 0;
-
-        if (enemy.state === "CHASE" && !hasLOS && distToPlayer < 90 && enemy.lastKnownPos) {
-            const dxToLastPos = enemy.lastKnownPos.x - enemy.pos.x;
-            const dyToLastPos = enemy.lastKnownPos.y - enemy.pos.y;
-            const distToLastPos = Math.sqrt(dxToLastPos * dxToLastPos + dyToLastPos * dyToLastPos);
-            
-            if (distToLastPos > 5) {
-                eMoveX = dxToLastPos / distToLastPos;
-                eMoveY = dyToLastPos / distToLastPos;
-            }
-        } 
-        else if (enemy.state === "CHASE" && distToPlayer < 130 && hasLOS) {
+        
+        // Eğer oyuncu dibimizdeyse (130px) ve aramızda duvar yoksa, A* noktalarını boşver düz üstüne atla!
+        if (enemy.state === "CHASE" && distToPlayer < 130 && hasLOS) {
             eMoveX = dxToPlayer / distToPlayer;
             eMoveY = dyToPlayer / distToPlayer;
         } 
+        // Uzaktaysak senin A* ile bulduğumuz noktalara (Waypoint) sırasıyla yürümeye devam et
         else if (enemy.path && enemy.path.length > 0) {
-            const nextNodePos = enemy.path[0];
+            const nextNodePos = this.navGraph.nodes.get(enemy.path[0]);
             if (nextNodePos) {
                 const dx = nextNodePos.x - enemy.pos.x;
                 const dy = nextNodePos.y - enemy.pos.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                // Eğer o noktaya 18 piksel kadar yaklaştıysak, listeden sil ve bir sonraki noktaya geç!
                 if (dist < 18) { 
                     enemy.path.shift(); 
                 } else { 
@@ -252,6 +226,7 @@ export class Game {
             }
         }
 
+        // 5. BULUNAN YÖNE DOĞRU FİZİKSEL OLARAK İLERLE VE DUVARLARA ÇARPMA
         const currentSpeed = enemy.state === "CHASE" ? enemy.speed : enemy.speed * 0.65;
         if (eMoveX !== 0) {
             let nextEX = enemy.pos.x + eMoveX * currentSpeed * dt;
@@ -264,6 +239,7 @@ export class Game {
             enemy.pos.y = safeE.y;
         }
 
+        // 6. OYUNCU YAKALANDI MI? (KAZANMA/KAYBETME KONTROLÜ)
         if (Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer) < (this.player.radius + enemy.radius)) {
             this.gameState = "LOSE";
         }

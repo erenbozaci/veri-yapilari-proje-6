@@ -1,67 +1,58 @@
 import { MinHeap } from "./min_heap.js";
 
-/**
- * A* Algoritması ile graf üzerinde iki düğüm arasındaki en kısa yolu bulur.
- * @param {Graph} graph Üzerinde arama yapılacak Navigasyon Grafı
- * @param {string} startNodeId Başlangıç düğümünün ID'si (Düşmanın konumu)
- * @param {string} targetNodeId Hedef düğümünün ID'si (Oyuncunun konumu)
- * @returns {Array<string>|null} Düğüm ID'lerinden oluşan en kısa yol dizisi veya yol yoksa null
- */
 export function findPathAStar(graph, startNodeId, targetNodeId) {
+    // 1. GÜVENLİK KONTROLÜ
     if (!startNodeId || !targetNodeId) return null;
     if (startNodeId === targetNodeId) return [startNodeId];
 
-    // Öncelikli kuyruğumuz (Sıfırdan yazdığımız Min-Heap)
+    // 2. AÇIK LİSTE (Min-Heap): İnceleyeceğimiz noktaları tutacak. En ucuz F maliyeti hep en üstte olacak.
     const openSet = new MinHeap();
     
-    // gScore[node]: Başlangıçtan bu düğüme gelmenin bilinen en kısa mesafesi
+    // 3. G-MALİYETİ HAFIZASI: Başlangıçtan hangi noktaya kaç adımda (maliyetle) gittiğimizi yazacağımız defter.
     const gScore = new Map();
     
-    // Yol takibi için ebeveyn düğümleri tutan harita
+    // 4. EBEVEYN HAFIZASI (Nereden Geldim?): Hedefe ulaşınca yolu geriye doğru çizmek için kullanacağımız defter.
     const cameFrom = new Map();
 
-    // Başlangıç değerlerini ata
+    // --- BAŞLANGIÇ AYARLARI ---
     gScore.set(startNodeId, 0);
-    
-    // fScore = gScore + hScore (Heuristic olarak Öklid mesafesini kullanıyoruz)
     const initialF = graph.getDistance(startNodeId, targetNodeId);
     openSet.push({ node: startNodeId, f: initialF });
 
-    // Heap içinde gezilecek düğüm kalmayana kadar dön
+    // 5. ARAMA DÖNGÜSÜ
     while (!openSet.isEmpty()) {
-        // En düşük F maliyetine sahip düğümü kuyruktan çek
         const currentItem = openSet.pop();
         const current = currentItem.node;
 
-        // Hedefe ulaştıysak yolu geri sararak inşa et
+        // 6. HEDEFE ULAŞTIK MI?
         if (current === targetNodeId) {
             const totalPath = [current];
             let curr = current;
+            
             while (cameFrom.has(curr)) {
                 curr = cameFrom.get(curr);
-                totalPath.unshift(curr); // Yolun başına ekle
+                totalPath.unshift(curr); // Dizinin en başına ekle
             }
             return totalPath;
         }
 
-        // Mevcut düğümün komşularını tara
+        // 7. KOMŞULARA BAKMA (Keşif Aşaması)
         const neighbors = graph.getNeighbors(current);
+        
         for (let neighbor of neighbors) {
-            // Şimdilik her komşu arası uzaklık sabit (G maliyeti + mesafe)
-            const tentativeGScore = (gScore.get(current) || 0) + graph.getDistance(current, neighbor);
+            const tentativeGScore = gScore.get(current) + graph.getDistance(current, neighbor);
 
-            // Eğer bu komşuya daha kısa bir yoldan ulaştıysak güncelle
+            // 8. DAHA KISA BİR YOL BULDUK MU?
             if (!gScore.has(neighbor) || tentativeGScore < gScore.get(neighbor)) {
                 cameFrom.set(neighbor, current);
                 gScore.set(neighbor, tentativeGScore);
                 
-                // F = G + H maliyetini hesapla ve Heap'e ekle
                 const fScore = tentativeGScore + graph.getDistance(neighbor, targetNodeId);
                 openSet.push({ node: neighbor, f: fScore });
             }
         }
     }
 
-    // Eğer kuyruk bittiyse ve hedefe ulaşılamadıysa yol yoktur
+    // 9. GİDECEK HİÇBİR YOL YOKSA
     return null;
 }
