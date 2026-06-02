@@ -4,20 +4,23 @@ import { handleWallCollisions } from "../physics/collision.js";
 export class Player {
     constructor(x, y) {
         this.pos = new Point(x, y);
-        this.radius = 6; // Yarıçapı 8'den 6'ya düşürdük, dar labirent koridorlarında asla sıkışmayacak!
-        this.speed = 130; 
+        this.radius = 6; // Dar koridorlar için ideal boyut
+        this.speed = 130;
+        this.angle = 0; // Görüş alanı (ışık) açısı için eklendi
     }
 
     update(dt, keys, walls) {
         let moveX = 0;
         let moveY = 0;
 
-        if (keys["w"] || keys["ArrowUp"]) moveY = -1;
-        if (keys["s"] || keys["ArrowDown"]) moveY = 1;
-        if (keys["a"] || keys["ArrowLeft"]) moveX = -1;
-        if (keys["d"] || keys["ArrowRight"]) moveX = 1;
+        if (keys["w"] || keys["arrowup"]) moveY = -1;
+        if (keys["s"] || keys["arrowdown"]) moveY = 1;
+        if (keys["a"] || keys["arrowleft"]) moveX = -1;
+        if (keys["d"] || keys["arrowright"]) moveX = 1;
 
-        if (moveX !== 0 && moveY !== 0) {
+        // Karakterin baktığı açıyı güncelle
+        if (moveX !== 0 || moveY !== 0) {
+            this.angle = Math.atan2(moveY, moveX);
             const length = Math.sqrt(moveX * moveX + moveY * moveY);
             moveX /= length;
             moveY /= length;
