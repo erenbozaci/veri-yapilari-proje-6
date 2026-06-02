@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  # Oyun Ekranı (Frontend)
+  game_frontend:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/usr/share/nginx/html
+
+  # Yapay Zeka Servisi (AI Service)
+  ai_service:
+    build: ./ai_service
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./ai_service:/app
