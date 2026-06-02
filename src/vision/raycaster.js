@@ -1,156 +1,103 @@
-import { intersectRaySegment } from "../physics/intersection.js";
 import Point from "../utils/classes/point.js";
-import Ray from "../utils/classes/ray.js";
-import Vector2 from "../utils/classes/vector2.js";
 
 export class Raycaster {
+  /**
+   * @param {Object} bspRoot Oluşturulan BSP Ağacının kök düğümü (Root)
+   */
   constructor(bspRoot) {
     this.root = bspRoot;
-    this.EPS = 1e-6;
   }
+
   /**
-   * Bu fonksiyon, verilen origin noktasından belirli 
-   * bir açıyla bir ışın (ray) atar ve bu ışının BSP 
-   * ağacındaki segmentlerle kesişip kesişmediğini kontrol eder. 
-   * Eğer kesişme varsa, kesişme noktasını ve mesafesini döndürür.
-   * @param {Point} origin 
-   * @param {number} angle 
-   * @returns {{point: Point, dist: number} | null} Kesişme sonucu: {point: Point, dist: number} veya null
+   * Belirli bir orijinden ve belirli bir açıda ışın fırlatır.
+   * BSP ağacını kullanarak en yakın duvar kesişim noktasını bulur.
+   * @param {Point} origin Işının çıkış noktası (Oyuncu konumu)
+   * @param {number} angle Işının atıldığı açı (Radyan)
+   * @returns {{point: Point, param: number} | null} Kesişim noktası ve uzaklık parametresi
    */
   castRay(origin, angle) {
-    const dir = Vector2.fromAngle(angle);
-    const ray = new Ray(origin, dir);
-
-    const hit = this._traverse(this.root, ray);
-    return hit;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    
+    // Büyük bir ışın segmenti oluşturuyoruz (Maksimum görüş menzili için)
+    const rayEnd = new Point(origin.x + dx * 2000, origin.y + dy * 2000);
+    
+    return this._traverse(this.root, origin, rayEnd);
   }
 
   /**
-   * Bu fonksiyon, verilen bir BSP düğümünde (node) ve bir ışında (ray), 
-   * ışının düğümdeki segmentlerle kesişip kesişmediğini kontrol eder. 
-   * Eğer kesişme varsa, kesişme noktasını ve mesafesini döndürür. 
-   * Fonksiyon, önce ışının başlangıç noktasına göre düğümü sınıflandırır 
-   * (front veya back) ve önce yakın subtree'yi (near) sonra uzak subtree'yi (far) kontrol eder. 
-   * Eğer bir kesişme bulunursa, uzak subtree'yi kontrol etmeden sonucu döndürür (pruning).
-   * @param {BSPNode} node 
-   * @param {Ray} ray 
-   * @returns {{point: Point, dist: number} | null} Kesişme sonucu: {point: Point, dist: number} veya null
+   * BSP Ağacı üzerinde Rekürsif Gezinme ve Budama (Traversal & Pruning) Algoritması
+   * Şartname Faz 2: "BSP ağacı kullanılarak gereksiz testler azaltılır" maddesidir.
    */
-  _traverse(node, ray) {
+  _traverse(node, p1, p2) {
     if (!node) return null;
 
-    const side = this._classify(ray.origin, node.line);
-
-    const near = side >= 0 ? node.front : node.back;
-    const far  = side >= 0 ? node.back  : node.front;
-
-    // yakın subtree
-    let bestHit = this._traverse(near, ray);
-
-    // node segmentleri
-    for (let seg of node.segments) {
-      const hit = intersectRaySegment(ray.origin, ray.dir, seg);
-
-      if (!hit) continue;
-
-      if (!bestHit || hit.dist < bestHit.dist) {
-        bestHit = hit;
+    // Eğer yaprak düğüme (Leaf) ulaştıysak, içindeki duvarlarla gerçek kesişim testi yap
+    if (node.isLeaf) {
+      let closestHit = null;
+      for (let wall of node.segments) {
+        const hit = this._intersectSegments(p1, p2, wall.a, wall.b);
+        if (hit) {
+          if (!closestHit || hit.param < closestHit.param) {
+            closestHit = hit;
+          }
+        }
       }
+      return closestHit;
     }
 
-    // PRUNE
-    if (bestHit) {
-      const lineHit = this._rayLine(ray, node.line);
+    // Bölme doğrusuna göre ışının başlangıç ve bitiş noktalarını sınıflandır
+    const d1 = this._pointToLineDistance(p1, node.partition);
+    const d2 = this._pointToLineDistance(p2, node.partition);
 
-      if (!lineHit || lineHit.dist > bestHit.dist) {
-        return bestHit;
-      }
+    // Işın bölme doğrusunun tamamen ÖNÜNDEYSE: Sadece ön alt ağacı tara, arkayı BUDA!
+    if (d1 >= 0 && d2 >= 0) {
+      return this._traverse(node.front, p1, p2);
+    }
+    // Işın bölme doğrusunun tamamen ARKASINDAYSA: Sadece arka alt ağacı tara, önü BUDA!
+    if (d1 < 0 && d2 < 0) {
+      return this._traverse(node.back, p1, p2);
     }
 
-    // far subtree
-    const farHit = this._traverse(far, ray);
+    // Işın doğruyu kesiyorsa: Önce başlangıç noktasının olduğu tarafı, sonra diğer tarafı tara
+    const first = d1 >= 0 ? node.front : node.back;
+    const second = d1 >= 0 ? node.back : node.front;
 
-    if (!bestHit) return farHit;
-    if (!farHit) return bestHit;
-
-    return (farHit.dist < bestHit.dist) ? farHit : bestHit;
+    const hitFirst = this._traverse(first, p1, p2);
+    if (hitFirst) {
+      // Eğer ilk tarafta bir duvara çarptıysak, arkadaki alt ağaca bakmaya gerek yoktur (Görüş kapanmıştır)
+      return hitFirst;
+    }
+    
+    return this._traverse(second, p1, p2);
   }
 
-  _rayLine(ray, line) {
-    const p = ray.origin;
-    const r = ray.dir;
+  // Rekürsiyon için tüm duvarları düz bir diziye toplayan yardımcı fonksiyon
+  _collect(node) {
+    if (!node) return [];
+    if (node.isLeaf) return node.segments;
+    return [...this._collect(node.front), ...this._collect(node.back)];
+  }
 
-    const q = line.a;
-    const s = {
-      x: line.b.x - line.a.x,
-      y: line.b.y - line.a.y
-    };
+  // İki çizgi segmenti arasındaki geometrik kesişimi hesaplar (Determinant yöntemi)
+  _intersectSegments(p1, p2, p3, p4) {
+    const den = (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
+    if (den === 0) return null; // Paralel
 
-    const cross = r.x * s.y - r.y * s.x;
-    if (Math.abs(cross) < this.EPS) return null;
+    const ua = ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) / den;
+    const ub = ((p2.x - p1.x) * (p1.y - p3.y) - (p2.y - p1.y) * (p1.x - p3.x)) / den;
 
-    const qp = { x: q.x - p.x, y: q.y - p.y };
-    const t = (qp.x * s.y - qp.y * s.x) / cross;
-
-    if (t >= 0) {
+    if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
       return {
-        x: p.x + r.x * t,
-        y: p.y + r.y * t,
-        dist: t
+        point: new Point(p1.x + ua * (p2.x - p1.x), p1.y + ua * (p2.y - p1.y)),
+        param: ua // Başlangıç noktasına olan uzaklık oranı
       };
     }
-
     return null;
   }
 
-  _classify(point, line) {
-    const dx = line.b.x - line.a.x;
-    const dy = line.b.y - line.a.y;
-
-    return (point.x - line.a.x) * dy -
-           (point.y - line.a.y) * dx;
-  }
-
-  /**
-   * Origin noktasından tüm açılar için ışınlar atarak, bu ışınların 
-   * BSP ağacındaki segmentlerle kesiştiği noktaları hesaplar. 
-   * Bu noktalar, origin noktasının görüş alanını (field of view) 
-   * oluşturur. Fonksiyon, bu noktaları açısal sıraya göre sıralayarak döndürür.
-   * @param {Point} origin 
-   * @returns {Array<{point: Point, dist: number, angle: number}>} Görüş alanındaki noktalar
-   */
-  computeVisibility(origin) {
-    const segments = this._collect(this.root);
-    const angles = [];
-    const points = [];
-
-    for (let seg of segments) {
-      for (let p of [seg.a, seg.b]) {
-        const a = Math.atan2(p.y - origin.y, p.x - origin.x);
-
-        angles.push(a - 0.0001, a, a + 0.0001);
-      }
-    }
-
-    for (let angle of angles) {
-      const hit = this.castRay(origin, angle);
-      if (hit) {
-        hit.angle = angle;
-        points.push(hit);
-      }
-    }
-
-    points.sort((a, b) => a.angle - b.angle);
-    return points;
-  }
-
-  _collect(node, list = []) {
-    if (!node) return list;
-
-    list.push(...node.segments);
-    this._collect(node.front, list);
-    this._collect(node.back, list);
-
-    return list;
+  // Noktanın doğruya göre konumunu bulur (Pozitif: Ön, Negatif: Arka)
+  _pointToLineDistance(pt, line) {
+    return (line.b.x - line.a.x) * (pt.y - line.a.y) - (line.b.y - line.a.y) * (pt.x - line.a.x);
   }
 }
