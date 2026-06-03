@@ -1,5 +1,6 @@
 /**
- * Bir oyuncunun dairesel gövdesi ile bir duvar çizgisi arasındaki en yakın noktayı bulur.
+ * Bir oyuncunun veya düşmanın dairesel gövdesi ile bir duvar çizgisi arasındaki en yakın noktayı bulur.
+ * (Circle vs Segment Görevi)
  */
 function closestPointOnSegment(p, seg) {
     const ab = { x: seg.b.x - seg.a.x, y: seg.b.y - seg.a.y };
@@ -18,9 +19,10 @@ function closestPointOnSegment(p, seg) {
 }
 
 /**
- * Haritadaki duvarları tarayarak oyuncuyu dışarı iter ve köşelerde yağ gibi kaymasını sağlar.
- * @param {Object} pos Oyuncunun test edilmek istenen konumu {x, y}
- * @param {number} radius Oyuncunun yarıçapı
+ * Haritadaki duvarları tarayarak nesneyi dışarı iter ve köşelerde yağ gibi kaymasını sağlar.
+ * (Player/Enemy Wall Collision Görevi)
+ * @param {Object} pos Nesnenin test edilmek istenen konumu {x, y}
+ * @param {number} radius Nesnenin yarıçapı
  * @param {Array} walls Oyundaki tüm duvar segmentleri dizisi
  * @returns {Object} Çarpışması düzeltilmiş yeni {x, y} konumu
  */
@@ -38,7 +40,7 @@ export function handleWallCollisions(pos, radius, walls) {
             const distY = corrected.y - closest.y;
             const distance = Math.sqrt(distX * distX + distY * distY);
 
-            // Eğer mesafe yarıçaptan küçükse, oyuncu duvarın sınırını ihlal etmiştir!
+            // Eğer mesafe yarıçaptan küçükse, nesne duvarın sınırını ihlal etmiştir!
             if (distance < radius) {
                 const overlap = radius - distance;
 
@@ -46,7 +48,7 @@ export function handleWallCollisions(pos, radius, walls) {
                     // Tam çizgi üstüne denk geldiyse hafifçe yukarı fırlat
                     corrected.y -= radius;
                 } else {
-                    // Oyuncuyu duvarın dışına doğru normal vektörü doğrultusunda it
+                    // Nesneyi duvarın dışına doğru normal vektörü doğrultusunda it (Sliding)
                     corrected.x += (distX / distance) * overlap;
                     corrected.y += (distY / distance) * overlap;
                 }
