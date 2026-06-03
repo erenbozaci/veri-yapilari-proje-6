@@ -36,7 +36,7 @@ export class Game {
     const builder = new BSPBuilder();
     this.bspRoot = builder.buildTree(this.walls);
 
-    // Ozi'nin Dokunuşu: Player Sınıfı ve el feneri açısı kurtarıldı!
+    // Ozi'nin Dokunuşu: Player Sınıfı
     this.player = new Player(85, 85);
     this.viewAngle = 1.1; 
 
@@ -97,7 +97,6 @@ export class Game {
       return true; 
   }
 
-  // Silinen kritik duvar çarpışma düzeltme fonksiyonu geri getirildi
   _checkAndCorrectWallCollision(pos, radius) {
       let corrected = { x: pos.x, y: pos.y };
       for (let seg of this.walls) {
@@ -124,63 +123,46 @@ export class Game {
       return corrected;
   }
 
-  // Eksik olan ana güncelleme fonksiyonu ve parantez blokları tamamen tamir edildi
   update(dt) {
       this.animationTimer += dt;
 
-      // Ozi'nin Hareketi: Karakterin WASD kontrolleri ve fizik akışı bağlandı!
       this.player.update(dt, this.keys, this.walls);
 
-      // Meltem'in Düşman Yapay Zekası Döngüsü (Sözdizimi hataları ayıklandı)
       for (let enemy of this.enemies) {
           const dxToPlayer = this.player.pos.x - enemy.pos.x;
           const dyToPlayer = this.player.pos.y - enemy.pos.y;
-          const distToPlayer = Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer);
           const hasLOS = this._hasLineOfSight(enemy.pos, this.player.pos);
 
-          // Durum makinesi geçişleri
-          if (distToPlayer < 240 && hasLOS) {
-              enemy.state = "CHASE";
-          } else if (distToPlayer > 350) { 
-              if (enemy.state === "CHASE") {
-                  enemy.state = "PATROL";
-                  enemy.patrolTargetNodeId = null;
-                  enemy.path = []; 
-              }
-          }
+          // SÜREKLİ KOVALAMA (TERMINATÖR) MODU: Mesafe veya duvar fark etmeksizin seni hedefler!
+          enemy.state = "CHASE";
 
-          // A* Zamanlayıcısı hesaplamaları
           enemy.pathUpdateTimer += dt;
+          // Her 0.15 saniyede bir senin yeni konumuna göre labirentteki rotasını günceller
           if (enemy.pathUpdateTimer > 0.15 || enemy.path.length === 0) {
               enemy.pathUpdateTimer = 0;
               const startNode = this.navGraph.getClosestNode(enemy.pos.x, enemy.pos.y);
+              const targetNode = this.navGraph.getClosestNode(this.player.pos.x, this.player.pos.y);
               
-              if (enemy.state === "CHASE") {
-                  const targetNode = this.navGraph.getClosestNode(this.player.pos.x, this.player.pos.y);
-                  const newPath = findPathAStar(this.navGraph, startNode, targetNode);
-                  if (newPath) enemy.path = newPath;
-              } else if (enemy.state === "PATROL" && (!enemy.path || enemy.path.length === 0)) {
-                  const nodeIds = Array.from(this.navGraph.nodes.keys());
-                  if (nodeIds.length > 0) {
-                      enemy.patrolTargetNodeId = nodeIds[Math.floor(Math.random() * nodeIds.length)];
-                      const newPath = findPathAStar(this.navGraph, startNode, enemy.patrolTargetNodeId);
-                      if (newPath) enemy.path = newPath;
-                  }
-              }
+              const newPath = findPathAStar(this.navGraph, startNode, targetNode);
+              if (newPath) enemy.path = newPath;
           }
 
-          // Yumuşak süzülme ve yönelim adımları
           let eMoveX = 0, eMoveY = 0;
-          if (enemy.state === "CHASE" && distToPlayer < 130 && hasLOS) {
+          const distToPlayer = Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer);
+          
+          if (distToPlayer < 130 && hasLOS) {
+              // Çok yakındaysa ve aranızda duvar yoksa kestirmeden direkt üstüne atlar
               eMoveX = dxToPlayer / distToPlayer;
               eMoveY = dyToPlayer / distToPlayer;
           } else if (enemy.path && enemy.path.length > 0) {
+              // Uzaktaysa A* algoritmasının çizdiği rotadan duvarları dolanarak gelir
               const nextNodePos = this.navGraph.nodes.get(enemy.path[0]);
               if (nextNodePos) {
                   const dx = nextNodePos.x - enemy.pos.x;
                   const dy = nextNodePos.y - enemy.pos.y;
                   const dist = Math.sqrt(dx * dx + dy * dy);
-                  if (dist < 18) { 
+                  
+                  if (dist < 35) { 
                       enemy.path.shift();
                   } else { 
                       eMoveX = dx / dist;
@@ -189,8 +171,16 @@ export class Game {
               }
           }
 
-          // Fiziksel ilerleme ve güvenli duvar itimi
-          const currentSpeed = enemy.state === "CHASE" ? enemy.speed : enemy.speed * 0.65;
+          // Fenerin yönü yürüdüğü yöne baksın
+          if (eMoveX !== 0 || eMoveY !== 0) {
+              enemy.angle = Math.atan2(eMoveY, eMoveX);
+          } else {
+              enemy.angle += 1.5 * dt; 
+          }
+
+          // Düşman hızını kalıcı olarak sabitledik (Oyundan hiç kaçılamayacak kadar zor olmasın diye %75 hız)
+          const currentSpeed = enemy.speed * 0.75; 
+          
           if (eMoveX !== 0) {
               let nextEX = enemy.pos.x + eMoveX * currentSpeed * dt;
               let safeE = this._checkAndCorrectWallCollision({ x: nextEX, y: enemy.pos.y }, enemy.radius);
@@ -202,13 +192,13 @@ export class Game {
               enemy.pos.y = safeE.y;
           }
 
-          // Yakalanma durumu kontrolü
+          // Yakalanma kontrolü
           if (Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer) < (this.player.radius + enemy.radius)) {
               this.gameState = "LOSE";
           }
       }
 
-      // Kazanma durumu kontrolü
+      // Kazanma kontrolü
       const tDx = this.player.pos.x - this.targetPos.x;
       const tDy = this.player.pos.y - this.targetPos.y;
       if (Math.sqrt(tDx * tDx + tDy * tDy) < (this.player.radius + this.targetRadius)) {
@@ -223,7 +213,7 @@ export class Game {
 
       const minAngle = centerAngle - viewAngle / 2;
       const maxAngle = centerAngle + viewAngle / 2;
-      const maxRayDist = 140;
+      const maxRayDist = 140; // Fenerin ışık gücü / menzili
       
       for (let seg of segments) {
           for (let p of [seg.a, seg.b]) {
@@ -278,13 +268,32 @@ export class Game {
       return points;
   }
 
+  // --- SİHİR BURADA: YENİ RENDER (ÇİZİM) FONKSİYONU ---
   render() {
       this.renderer.clear(this.width, this.height);
 
-      const visibilityPoints = this._computeRestrictedFOVPoints(this.player.pos, this.player.angle, this.viewAngle);
-      this.fov.drawShadow(this.ctx, this.player.pos, visibilityPoints, this.width, this.height);
-      
-      this.renderer.drawRealisticFlashlight(this.player.pos, visibilityPoints);
+      // 1. Zemin karanlığı
+      this.ctx.fillStyle = "rgba(0, 0, 0, 0.90)"; 
+      this.ctx.fillRect(0, 0, this.width, this.height);
+
+      // 2. TÜM DÜŞMANLARA FENER ÇİZİMİ
+      this.ctx.globalCompositeOperation = "lighter"; // Işıkların kesişim noktalarının parlamasını sağlar
+      for (let enemy of this.enemies) {
+          
+          let lookAngle = enemy.angle || 0; 
+          
+          if (enemy.state === "CHASE") {
+              lookAngle = Math.atan2(this.player.pos.y - enemy.pos.y, this.player.pos.x - enemy.pos.x);
+          }
+
+          let enemyViewAngle = 1.0; 
+
+          const visibilityPoints = this._computeRestrictedFOVPoints(enemy.pos, lookAngle, enemyViewAngle);
+          this.renderer.drawRealisticFlashlight(enemy.pos, visibilityPoints);
+      }
+      this.ctx.globalCompositeOperation = "source-over"; // Işık hilesini kapat, normale dön
+
+      // 3. Haritayı, oyuncuyu ve düşmanları ışığın üstüne normal çiz
       this.renderer.drawWalls(this.walls);
       this.renderer.drawTargetGate(this.targetPos, this.targetRadius, this.animationTimer);
       this.renderer.drawPlayer(this.player);

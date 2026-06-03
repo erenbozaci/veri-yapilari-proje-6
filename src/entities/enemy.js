@@ -13,6 +13,9 @@ export class Enemy {
         // Yapay zeka durumu: "PATROL" (Devriye), "CHASE" (Agresif Kovalama)
         this.state = "PATROL"; 
         this.patrolTargetNodeId = null; 
+        
+        // Düşmanın baktığı yön (Fener için kullanılacak)
+        this.angle = 0; 
     }
 
     update(dt, walls) {
@@ -35,6 +38,9 @@ export class Enemy {
         // Yön vektörünü normalize et (uzunluğu 1 yap)
         let moveX = dx / distanceToTarget;
         let moveY = dy / distanceToTarget;
+
+        // Düşmanın baktığı açıyı radyan cinsinden hesaplıyoruz
+        this.angle = Math.atan2(moveY, moveX);
 
         // X Ekseni Hareketi ve Duvar Kontrolü
         if (moveX !== 0) {
