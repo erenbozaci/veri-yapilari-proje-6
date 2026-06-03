@@ -1,3 +1,4 @@
+
 export class BSPNode {
     constructor(partition = null) {
         this.partition = partition;
@@ -7,7 +8,13 @@ export class BSPNode {
         this.segments = [];
     }
 
-    isLeaf() {
+    // Enes Çelik - Düğümün yaprak (leaf) düğüm olup olmadığını kontrol eder (Evlatları yoksa yapraktır)
+    isLeaf_enes_celik() {
         return this.front === null && this.back === null;
+    }
+
+    // Sistem entegrasyonu için uyumluluk köprüsü:
+    isLeaf() {
+        return this.isLeaf_enes_celik();
     }
 }
