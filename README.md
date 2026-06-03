@@ -15,7 +15,7 @@ Sistemi herhangi bir ortam bağımlılığı yaşamadan tek komutla ayağa kald�
 
 `docker-compose up --build`
 
-Uygulama ayağa kalktığında oyun arayüzüne http://localhost:3000 adresinden ulaşabilirsiniz.
+Uygulama ayağa kalktığında oyun arayüzüne http://localhost:8080 adresinden ulaşabilirsiniz.
 
 ### Kullanılan Docker Konfigürasyonları
 
@@ -28,25 +28,28 @@ RUN pip install -r requirements.txt
 COPY . .
 EXPOSE 5000
 CMD ["python", "app.py"]
-
 ```
 
 **docker-compose.yml:**
-
 ```yaml
 version: '3.8'
+
 services:
-  frontend:
-    image: nginx:alpine
+  # Oyun Ekranı (Frontend)
+  game_frontend:
+    build: .
     ports:
-      - "3000:80"
+      - "8080:80"
     volumes:
-      - ./:/usr/share/nginx/html
+      - .:/usr/share/nginx/html
+
+  # Yapay Zeka Servisi (AI Service)
   ai_service:
     build: ./ai_service
     ports:
       - "5000:5000"
-
+    volumes:
+      - ./ai_service:/app
 ```
 
 ## 3. Veri Yapıları ve Big-O Zaman Karmaşıklığı Analizi
@@ -54,7 +57,7 @@ services:
 Projede istenen çekirdek veri yapıları standart kütüphaneler (örneğin hazır priority queue paketleri) kullanılmadan sıfırdan yazılmıştır.
 
 | Veri Yapısı | Kullanım Amacı | Ortalama Karmaşıklık | En Kötü Durum |
-| --- | --- | --- | --- |
+| :--- | :--- | :--- | :--- |
 | **BSP Ağacı** | Duvar segmentlerini saklamak ve ışın/görüş alanı sorgularını tüm haritayı taramadan hızlıca yapmak. | O(log N) | O(N) |
 | **Graf (Adjacency List)** | Yürünebilir alanları koordinat düğümleri (waypoint) olarak bağlayıp harita topolojisini oluşturmak. | Düğüm Erişimi: O(1) | Düğüm Erişimi: O(N) |
 | **Min-Heap (Priority Queue)** | A* algoritması çalışırken "en düşük maliyetli" yolu hızlıca çekmek için kullanılmıştır. | Ekleme/Çıkarma: O(log N) | O(log N) |
@@ -66,7 +69,7 @@ Projede istenen çekirdek veri yapıları standart kütüphaneler (örneğin haz
 
 * **Raycasting ve Line of Sight (LOS):** Düşmanların oyuncuyu görüp görmediğini anlar. Her karede yüzlerce ışın fırlatmak yerine, BSP ağacı kullanılarak ışının gitmediği yönlerdeki duvarlar testten çıkarılır (budama/pruning) ve gereksiz testler azaltılır.
 * **A* Pathfinding:** Düşmanların hedefe giderken duvarlara takılmadan en kısa yolu bulmasını sağlar. f(n) = g(n) + h(n) formülü ile çalışır.
-* **Çarpışma Tespiti (Circle vs Segment):** Oyuncu ve düşmanların duvarların içinden geçmesini engeller.
+* **Çarpışma Tespiti (Circle vs Segment):** Oyuncu ve düşmanların duvarların içinden geçmesini engeller. 
 
 ## 5. Proje Mimarisi ve UML İskeleti
 
@@ -85,7 +88,6 @@ Projenin modüler dosya yapısı aşağıdaki gibidir:
 ├── index.html              -> HTML5 Canvas arayüzü
 ├── docker-compose.yml
 └── README.md
-
 ```
 
 ## 6. Üretken Yapay Zeka (GenAI) Kullanım Dökümü
