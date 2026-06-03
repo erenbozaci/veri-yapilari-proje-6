@@ -4,7 +4,7 @@ import Segment from "../utils/classes/segment.js";
 
 /**
  * Bu fonksiyon, verilen bir ışının (ray) bir segmentle kesişimini bulur.
- * (Eren'in raycasting'i için gerekli, bozmadan bırakıyoruz)
+ * (Raycasting modülü entegrasyonu)
  * @param {Point} origin
  * @param {Point} dir
  * @param {Segment} seg
@@ -36,7 +36,7 @@ export function intersectRaySegment(origin, dir, seg) {
 
 /**
  * Bir oyuncunun dairesel gövdesi ile bir duvar çizgisi arasındaki en yakın noktayı bulur.
- * (Recep'in Circle vs Segment görevinin kalbi)
+ * (Circle-Segment çarpışma modülü)
  */
 export function closestPointOnSegment(p, seg) {
     const ab = { x: seg.b.x - seg.a.x, y: seg.b.y - seg.a.y };

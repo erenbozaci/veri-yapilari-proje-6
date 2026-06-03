@@ -19,7 +19,7 @@ function closestPointOnSegment(p, seg) {
 }
 
 /**
- * Haritadaki duvarları tarayarak nesneyi dışarı iter ve köşelerde yağ gibi kaymasını sağlar.
+ * Köşe çarpışmalarında yumuşak geçiş (sliding) sağlar.
  * (Player/Enemy Wall Collision Görevi)
  * @param {Object} pos Nesnenin test edilmek istenen konumu {x, y}
  * @param {number} radius Nesnenin yarıçapı
