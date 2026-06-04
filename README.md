@@ -84,10 +84,14 @@ Projenin modüler dosya yapısı aşağıdaki gibidir:
 │   ├── app.py
 │   └── requirements.txt
 ├── /src
-│   ├── /ai                 -> Min-Heap, Graf ve A* algoritmaları
-│   ├── /map                -> Duvar üretimi ve BSP Ağacı inşası
-│   ├── /physics            -> Çarpışma ve raycasting matematiksel formülleri
-│   └── /core               -> Oyun döngüsü (game loop) ve karakter kontrolleri
+│   ├── /ai                 -> Yol Bulma (A*) ve Veri Yapıları (Min-Heap, Graph)
+│   ├── /core               -> Ana Oyun Döngüsü (Game Loop) ve Kontrolör
+│   ├── /entities           -> Oyuncu ve Düşman sınıfları
+│   ├── /map                -> Harita üretimi ve BSP Ağacı yönetimi
+│   ├── /physics            -> Çarpışma tespiti ve kesişim matematiği
+│   ├── /render             -> Canvas çizim işlemleri (Renderer)
+│   ├── /utils              -> Ortak sınıflar (Point, Vector2, Segment)
+│   └── /vision             -> Görüş alanı (FOV) ve Raycasting
 ├── index.html              -> HTML5 Canvas arayüzü
 ├── docker-compose.yml
 └── README.md
