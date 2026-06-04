@@ -237,8 +237,6 @@ Geliştirme sürecinde matematiksel formüllerin sağlamasını yapmak ve test h
 
 ### 7.3 Dokümantasyon ve Modelleme
 * **UML Modelleme:** Projenin tüm bileşenlerini ve ilişkilerini gösteren Mermaid tabanlı sınıf diyagramları yapay zeka tarafından analiz edilerek oluşturulmuştur.
-* **Mimari Dokümantasyon:** Projenin teknik kararlarını açıklayan `ARCHITECTURE.md` dosyası Türkçe olarak hazırlanmıştır.
-
 ### 7.4 Örnek Promptlar
 * *"Düşmanların görüş konisi (FOV) içinde olup olmadığını kontrol eden ve aradaki duvarları BSP raycaster ile sorgulayan isInFOV fonksiyonunu yazar mısın?"*
 * *"Python'daki A* mikroservisini iptal edip, projedeki src/ai altındaki JS dosyalarını kullanarak yerel bir yol bulma sistemi kur."*
