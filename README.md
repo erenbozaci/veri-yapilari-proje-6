@@ -3,7 +3,7 @@
 Bu proje, Veri Yapıları dersi kapsamında 2 boyutlu, kuşbakışı (top-down) oynanan bir gizlilik oyunu simülasyonudur. Projenin temel amacı, otonom düşmanların bulunduğu bir labirentte görüş alanı (FOV), yol bulma (pathfinding) ve çarpışma tespiti gibi problemleri, kendi yazdığımız veri yapılarıyla optimize ederek çözmektir.
 Çalışmamınızın videosuna aşağıdaki linkten ulaşabilirsiniz.
 
-[https://drive.google.com/file/d/12cqvNDei-LixEN3LCTDeu0qT-X-PHx4F/view?usp=sharing](Video Linki)
+(https://drive.google.com/file/d/12cqvNDei-LixEN3LCTDeu0qT-X-PHx4F/view?usp=sharing)[Video Linki]
 
 ## 1. Sistem Mimarisi ve Eşzamanlılık
 
