@@ -232,19 +232,19 @@ Geliştirme sürecinde matematiksel formüllerin sağlamasını yapmak ve test h
 
 ### 7.1 Algoritma Geliştirme ve İyileştirme
 * **Görüş Hattı (LOS) ve Engel Denetimi:** BSP ağacı tabanlı raycasting algoritması kullanılarak, düşmanların duvarların arkasını görmesini engelleyen `isInFOV` mantığı yapa zeka tarafından kurgulanmış ve entegre edilmiştir.
-* **Yol Bulma (Pathfinding) Refaktörü:** Sistemin Python mikroservis bağımlılığı kaldırılarak, yerel JavaScript tabanlı A* algoritmasına geçişi sağlanmıştır. Bu süreçte navigasyon grafının duvar kesişimlerini hesaplaması için gerekli geometrik fonksiyonlar üretilmiştir.
+* **Yol Bulma (Pathfinding) Entegrasyonu:** Düşmanların yol bulma simülasyonları için Python ve Flask tabanlı mikroservis entegrasyonu gerçekleştirilmiştir. Asenkron `fetch` istekleri ve `isCalculatingPath` kilidi ile verimli bir iletişim yapısı kurulmuştur.
 * **AI Davranış Modelleri:** Düşmanların oyuncuyu kaybettiklerinde son görülen konuma gitmesi ve ardından devriye moduna geçmesi gibi durum makinesi (FSM) iyileştirmeleri yapılmıştır.
 
 ### 7.2 Hata Ayıklama (Debugging)
 * **Kapsam ve Referans Hataları:** Oyun döngüsü içinde tanımlanmamış olan `dxToPlayer`, `dyToPlayer` ve `enemyViewAngle` gibi kritik değişkenlerin neden olduğu `ReferenceError` hataları otonom olarak tespit edilmiş ve düzeltilmiştir.
-* **Tip Hataları:** Eksik metot tanımları (`isInFOV is not a function`) için savunmacı programlama blokları eklenmiş ve modül yükleme sorunları giderilmiştir.
+* **BSP ve Raycasting Düzeltmeleri:** Duvarların "görünmez" olmasına neden olan BSP ağacı inşasındaki ve gezinme (traversal) algoritmasındaki mantıksal hatalar giderilerek %100 duvar engelleme doğruluğu sağlanmıştır.
 
 ### 7.3 Dokümantasyon ve Modelleme
-* **UML Modelleme:** Projenin tüm bileşenlerini ve ilişkilerini gösteren Mermaid tabanlı sınıf diyagramları yapay zeka tarafından analiz edilerek oluşturulmuştur.
+* **UML Modelleme:** Projenin tüm bileşenlerini ve ilişkilerini gösteren Mermaid tabanlı sınıf diyagramları oluşturulmuştur.
 ### 7.4 Örnek Promptlar
 * *"Düşmanların görüş konisi (FOV) içinde olup olmadığını kontrol eden ve aradaki duvarları BSP raycaster ile sorgulayan isInFOV fonksiyonunu yazar mısın?"*
-* *"Python'daki A* mikroservisini iptal edip, projedeki src/ai altındaki JS dosyalarını kullanarak yerel bir yol bulma sistemi kur."*
-* *"Navigasyon grafı oluşturulurken, düğümler arası kenarların duvarları kesip kesmediğini kontrol eden bir segment-intersection algoritması ekle."*
+* *"JavaScript frontend'inden Python Flask mikroservisine (http://127.0.0.1:5000/get-path) güvenli ve kilit mekanizmalı A* yol isteği atan kodu oluştur."*
+* *"BSP ağacı traversal algoritmasında sadece leaf düğümleri değil, tüm düğümlerdeki partition segmentlerini de kontrol eden bir mantık ekle."*
 
 
 

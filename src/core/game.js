@@ -6,8 +6,6 @@ import { BSPBuilder } from "../map/bsp/bsp_builder.js";
 import { Raycaster } from "../vision/raycaster.js";
 import { FOV } from "../vision/fov.js";
 import Point from "../utils/classes/point.js";
-import { findPathAStar } from "../ai/a_star.js";
-import { buildNavigationGraph } from "../ai/graph.js";
 
 export class Game {
   constructor(canvas) {
@@ -33,9 +31,6 @@ export class Game {
     // BSP (Binary Space Partitioning) Ağacı İnşası
     const builder = new BSPBuilder();
     this.bspRoot = builder.buildTree(this.walls);
-
-    // Navigasyon Grafı (Yol Bulma için)
-    this.navGraph = buildNavigationGraph(this.walls, this.width, this.height);
 
     // Oğuzhan Malkoç - Oyuncu (Player) Sınıfı ve Konfigürasyonları
     this.player = new Player(85, 85);
@@ -126,17 +121,32 @@ export class Game {
           
           enemy.pathUpdateTimer += dt;
 
-          // --- YEREL JAVASCRIPT A* ENTEGRASYONU (Sadece LOS varsa veya yol bittiyse) ---
+          // --- ASENKRON MİKROSERVİS (A*) ENTEGRASYONU ---
           if (hasLOS) {
               enemy.state = "CHASE";
-              if (enemy.pathUpdateTimer > 0.3) {
+              if (!enemy.isCalculatingPath && (enemy.pathUpdateTimer > 0.3 || enemy.path.length === 0)) {
                   enemy.pathUpdateTimer = 0;
-                  const startNode = this.navGraph.getClosestNode(enemy.pos.x, enemy.pos.y, this.walls);
-                  const targetNode = this.navGraph.getClosestNode(this.player.pos.x, this.player.pos.y, this.walls);
-                  const nodePath = findPathAStar(this.navGraph, startNode, targetNode);
-                  if (nodePath) {
-                      enemy.path = nodePath.map(id => this.navGraph.nodes.get(id));
-                  }
+                  enemy.isCalculatingPath = true;
+
+                  fetch('http://127.0.0.1:5000/get-path', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          start: { x: enemy.pos.x, y: enemy.pos.y },
+                          target: { x: this.player.pos.x, y: this.player.pos.y }
+                      })
+                  })
+                  .then(response => response.json())
+                  .then(data => {
+                      if (data.status === "success" && data.path) {
+                          enemy.path = data.path; 
+                      }
+                      enemy.isCalculatingPath = false;
+                  })
+                  .catch(error => {
+                      console.error("Mikroservis Bağlantı Hatası:", error);
+                      enemy.isCalculatingPath = false;
+                  });
               }
           } else {
               // Görüş kaybolduysa, eldeki yolu bitirince PATROL durumuna geç
