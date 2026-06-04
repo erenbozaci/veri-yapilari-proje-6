@@ -39,30 +39,55 @@ export class BSPBuilder {
     buildTree(segments) {
         if (segments.length === 0) return null;
 
-        const node = new BSPNode(segments[0]);
-        node.segments.push(segments[0]);
+        // Seçilen bölme segmentini al (Genellikle listenin ilki)
+        const partitionSeg = segments[0];
+        const node = new BSPNode(partitionSeg);
 
         const frontSegments = [];
         const backSegments = [];
 
-        for (let i = 1; i < segments.length; i++) {
+        for (let i = 0; i < segments.length; i++) {
             const seg = segments[i];
-            const sideA = classifyPoint(seg.a, node.partition.a, node.partition.b);
-            const sideB = classifyPoint(seg.b, node.partition.a, node.partition.b);
+            
+            // Bölme segmentinin kendisini veya onunla çakışanları node.segments içine koy
+            const sideA = classifyPoint(seg.a, partitionSeg.a, partitionSeg.b);
+            const sideB = classifyPoint(seg.b, partitionSeg.a, partitionSeg.b);
 
-            if (sideA === 'FRONT' && sideB === 'FRONT') {
+            if (sideA === 'ON_LINE' && sideB === 'ON_LINE') {
+                node.segments.push(seg);
+                continue;
+            }
+
+            if (sideA !== 'BACK' && sideB !== 'BACK') {
+                // Tamamen önde veya bir ucu çizgide
                 frontSegments.push(seg);
-            } else if (sideA === 'BACK' && sideB === 'BACK') {
+            } else if (sideA !== 'FRONT' && sideB !== 'FRONT') {
+                // Tamamen arkada veya bir ucu çizgide
                 backSegments.push(seg);
             } else {
-                const { frontPart, backPart } = this.splitSegment(seg, node.partition.a, node.partition.b);
+                // Çizgiyi kesiyor, böl
+                const { frontPart, backPart } = this.splitSegment(seg, partitionSeg.a, partitionSeg.b);
+                
+                // Bölünen parçalar null değilse ekle
                 if (frontPart) frontSegments.push(frontPart);
                 if (backPart) backSegments.push(backPart);
+                
+                // Eğer splitSegment null döndürdüyse (sayısal hassasiyet nedeniyle), 
+                // parçayı olduğu gibi bir tarafa atalım (veri kaybını önlemek için)
+                if (!frontPart && !backPart) {
+                    if (sideA === 'FRONT' || sideB === 'FRONT') frontSegments.push(seg);
+                    else backSegments.push(seg);
+                }
             }
         }
 
-        node.front = this.buildTree(frontSegments);
-        node.back = this.buildTree(backSegments);
+        // Önemli: Sonsuz döngüyü önlemek için partitionSeg'i alt dallara göndermiyoruz
+        // Çünkü o zaten node.segments içinde.
+        const filteredFront = frontSegments.filter(s => s !== partitionSeg);
+        const filteredBack = backSegments.filter(s => s !== partitionSeg);
+
+        node.front = this.buildTree(filteredFront);
+        node.back = this.buildTree(filteredBack);
 
         return node;
     }

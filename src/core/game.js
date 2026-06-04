@@ -6,6 +6,8 @@ import { BSPBuilder } from "../map/bsp/bsp_builder.js";
 import { Raycaster } from "../vision/raycaster.js";
 import { FOV } from "../vision/fov.js";
 import Point from "../utils/classes/point.js";
+import { findPathAStar } from "../ai/a_star.js";
+import { buildNavigationGraph } from "../ai/graph.js";
 
 export class Game {
   constructor(canvas) {
@@ -31,6 +33,9 @@ export class Game {
     // BSP (Binary Space Partitioning) Ağacı İnşası
     const builder = new BSPBuilder();
     this.bspRoot = builder.buildTree(this.walls);
+
+    // Navigasyon Grafı (Yol Bulma için)
+    this.navGraph = buildNavigationGraph(this.walls, this.width, this.height);
 
     // Oğuzhan Malkoç - Oyuncu (Player) Sınıfı ve Konfigürasyonları
     this.player = new Player(85, 85);
@@ -72,24 +77,7 @@ export class Game {
       requestAnimationFrame(this.loop.bind(this));
   }
 
-  // Matematiksel Doğru Kesişim Algoritması
-  _linesIntersect(p1, p2, p3, p4) {
-      const d = (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
-      if (d === 0) return false;
-      const ua = ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) / d;
-      const ub = ((p2.x - p1.x) * (p1.y - p3.y) - (p2.y - p1.y) * (p1.x - p3.x)) / d;
-      return (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1);
-  }
 
-  // Görüş Hattı (Line of Sight - LOS) Kontrolü
-  _hasLineOfSight(enemyPos, playerPos) {
-      for (let wall of this.walls) {
-          if (this._linesIntersect(enemyPos, playerPos, wall.a, wall.b)) {
-              return false;
-          }
-      }
-      return true;
-  }
 
   // Dairesel Gövde ile Çizgi Segmenti (Duvar) Çarpışma Testi
   _checkAndCorrectWallCollision(pos, radius) {
@@ -126,42 +114,38 @@ export class Game {
       this.player.update(dt, this.keys, this.walls);
 
       for (let enemy of this.enemies) {
+          const fovRange = 1.0; // Düşman görüş alanı açısı
+          const maxVisionDist = 140; // Fener (Flashlight) menzili ile senkronize edildi
+          
           const dxToPlayer = this.player.pos.x - enemy.pos.x;
           const dyToPlayer = this.player.pos.y - enemy.pos.y;
-          const hasLOS = this._hasLineOfSight(enemy.pos, this.player.pos);
+          const distToPlayer = Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer);
+
+          // hasLOS artık hem açı hem duvar hem de mesafe kontrolü yapıyor
+          const hasLOS = distToPlayer < maxVisionDist && this.fov.isInFOV(enemy.pos, enemy.angle, fovRange, this.player.pos);
           
-          enemy.state = "CHASE";
           enemy.pathUpdateTimer += dt;
 
-          // --- ASENKRON MİKROSERVİS (A*) ENTEGRASYONU ---
-          // Gereksiz ağ trafiğini (spam) önlemek için kilit (Mutex) mekanizması kullanılmıştır.
-          if (!enemy.isCalculatingPath && (enemy.pathUpdateTimer > 0.3 || enemy.path.length === 0)) {
-              enemy.pathUpdateTimer = 0;
-              enemy.isCalculatingPath = true; 
-
-              fetch('http://127.0.0.1:5000/get-path', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                      start: { x: enemy.pos.x, y: enemy.pos.y },
-                      target: { x: this.player.pos.x, y: this.player.pos.y }
-                  })
-              })
-              .then(response => response.json())
-              .then(data => {
-                  if (data.status === "success" && data.path) {
-                      enemy.path = data.path; 
+          // --- YEREL JAVASCRIPT A* ENTEGRASYONU (Sadece LOS varsa veya yol bittiyse) ---
+          if (hasLOS) {
+              enemy.state = "CHASE";
+              if (enemy.pathUpdateTimer > 0.3) {
+                  enemy.pathUpdateTimer = 0;
+                  const startNode = this.navGraph.getClosestNode(enemy.pos.x, enemy.pos.y, this.walls);
+                  const targetNode = this.navGraph.getClosestNode(this.player.pos.x, this.player.pos.y, this.walls);
+                  const nodePath = findPathAStar(this.navGraph, startNode, targetNode);
+                  if (nodePath) {
+                      enemy.path = nodePath.map(id => this.navGraph.nodes.get(id));
                   }
-                  enemy.isCalculatingPath = false;
-              })
-              .catch(error => {
-                  console.error("Mikroservis Bağlantı Hatası:", error);
-                  enemy.isCalculatingPath = false;
-              });
+              }
+          } else {
+              // Görüş kaybolduysa, eldeki yolu bitirince PATROL durumuna geç
+              if (enemy.path.length === 0) {
+                  enemy.state = "PATROL";
+              }
           }
 
           let eMoveX = 0, eMoveY = 0;
-          const distToPlayer = Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer);
 
           if (distToPlayer < 130 && hasLOS) {
               // Görüş hattında (LOS) ise doğrudan hedef takibi
@@ -299,8 +283,7 @@ export class Game {
               lookAngle = Math.atan2(this.player.pos.y - enemy.pos.y, this.player.pos.x - enemy.pos.x);
           }
 
-          let enemyViewAngle = 1.0; 
-
+          const enemyViewAngle = 1.0;
           const visibilityPoints = this._computeRestrictedFOVPoints(enemy.pos, lookAngle, enemyViewAngle);
           this.renderer.drawRealisticFlashlight(enemy.pos, visibilityPoints);
       }

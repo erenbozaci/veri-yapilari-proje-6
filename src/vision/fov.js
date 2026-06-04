@@ -99,4 +99,43 @@ export class FOV {
 
         return result;
     }
+
+    /**
+     * Hedef noktanın görüş alanı (FOV) içinde olup olmadığını ve duvarlar tarafından 
+     * engellenip engellenmediğini (Line of Sight - LOS) kontrol eder.
+     * 
+     * @param {Point} origin Görüşün başladığı nokta (Düşman konumu)
+     * @param {number} angle Görüşün merkez açısı (Radyan)
+     * @param {number} fovAngle Toplam görüş açısı (Radyan)
+     * @param {Point} targetPos Hedefin konumu (Oyuncu konumu)
+     * @returns {boolean} Hedef görünürse true, aksi halde false
+     */
+    isInFOV(origin, angle, fovAngle, targetPos) {
+        // 1. Açı Kontrolü: Hedef görüş konisi içinde mi?
+        const dx = targetPos.x - origin.x;
+        const dy = targetPos.y - origin.y;
+        const angleToTarget = Math.atan2(dy, dx);
+        
+        let diff = angleToTarget - angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+
+        if (Math.abs(diff) > fovAngle / 2) {
+            return false;
+        }
+
+        // 2. Engel (Duvar) Kontrolü: Görüş hattı (LOS) temiz mi?
+        const distToTarget = Math.sqrt(dx * dx + dy * dy);
+        const hit = this.raycaster.castRay(origin, angleToTarget);
+
+        if (hit) {
+            const distToWall = hit.param * 2000; // Raycaster.castRay içindeki sabit menzil (2000)
+            if (distToWall < distToTarget) {
+                // Duvar hedeften daha yakınsa görüş engellenmiştir
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

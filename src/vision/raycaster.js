@@ -32,44 +32,48 @@ export class Raycaster {
   _traverse(node, p1, p2) {
     if (!node) return null;
 
-    // Eğer yaprak düğüme (Leaf) ulaştıysak, içindeki duvarlarla gerçek kesişim testi yap
-    if (node.isLeaf) {
-      let closestHit = null;
-      for (let wall of node.segments) {
-        const hit = this._intersectSegments(p1, p2, wall.a, wall.b);
-        if (hit) {
-          if (!closestHit || hit.param < closestHit.param) {
-            closestHit = hit;
-          }
-        }
-      }
-      return closestHit;
-    }
+    let closestHit = null;
 
     // Bölme doğrusuna göre ışının başlangıç ve bitiş noktalarını sınıflandır
     const d1 = this._pointToLineDistance(p1, node.partition);
     const d2 = this._pointToLineDistance(p2, node.partition);
 
-    // Işın bölme doğrusunun tamamen ÖNÜNDEYSE: Sadece ön alt ağacı tara, arkayı BUDA!
+    // Düğümdeki tüm duvarlarla (bölme segmentleri dahil) kesişim testi yap
+    // Şartname: "Her düğümdeki segmentler kontrol edilmelidir"
+    for (let wall of node.segments) {
+        const hit = this._intersectSegments(p1, p2, wall.a, wall.b);
+        if (hit) {
+            if (!closestHit || hit.param < closestHit.param) {
+                closestHit = hit;
+            }
+        }
+    }
+
+    // Işın bölme doğrusunun tamamen ÖNÜNDEYSE
     if (d1 >= 0 && d2 >= 0) {
-      return this._traverse(node.front, p1, p2);
+        const hitFront = this._traverse(node.front, p1, p2);
+        if (hitFront && (!closestHit || hitFront.param < closestHit.param)) closestHit = hitFront;
     }
-    // Işın bölme doğrusunun tamamen ARKASINDAYSA: Sadece arka alt ağacı tara, önü BUDA!
-    if (d1 < 0 && d2 < 0) {
-      return this._traverse(node.back, p1, p2);
+    // Işın bölme doğrusunun tamamen ARKASINDAYSA
+    else if (d1 < 0 && d2 < 0) {
+        const hitBack = this._traverse(node.back, p1, p2);
+        if (hitBack && (!closestHit || hitBack.param < closestHit.param)) closestHit = hitBack;
+    }
+    // Işın doğruyu kesiyorsa veya çizgideyse her iki tarafı da tara
+    else {
+        const first = d1 >= 0 ? node.front : node.back;
+        const second = d1 >= 0 ? node.back : node.front;
+
+        const hitFirst = this._traverse(first, p1, p2);
+        if (hitFirst && (!closestHit || hitFirst.param < closestHit.param)) closestHit = hitFirst;
+        
+        // Eğer ilk tarafta bulduğumuz hit, zaten en yakın hit ise ve bölme noktasından önceyse
+        // ikinci tarafa bakmaya gerek kalmayabilir, ancak güvenli olması için bakıyoruz.
+        const hitSecond = this._traverse(second, p1, p2);
+        if (hitSecond && (!closestHit || hitSecond.param < closestHit.param)) closestHit = hitSecond;
     }
 
-    // Işın doğruyu kesiyorsa: Önce başlangıç noktasının olduğu tarafı, sonra diğer tarafı tara
-    const first = d1 >= 0 ? node.front : node.back;
-    const second = d1 >= 0 ? node.back : node.front;
-
-    const hitFirst = this._traverse(first, p1, p2);
-    if (hitFirst) {
-      // Eğer ilk tarafta bir duvara çarptıysak, arkadaki alt ağaca bakmaya gerek yoktur (Görüş kapanmıştır)
-      return hitFirst;
-    }
-    
-    return this._traverse(second, p1, p2);
+    return closestHit;
   }
 
   // Rekürsiyon için tüm duvarları düz bir diziye toplayan yardımcı fonksiyon

@@ -21,7 +21,7 @@ export class Graph {
         return this.adjacencyList.get(nodeId) || [];
     }
 
-    getClosestNode(x, y) {
+    getClosestNode(x, y, walls = []) {
         let closestId = null;
         let minQueryDist = Infinity;
 
@@ -29,9 +29,23 @@ export class Graph {
             const dx = pos.x - x;
             const dy = pos.y - y;
             const dist = Math.sqrt(dx * dx + dy * dy);
+            
             if (dist < minQueryDist) {
-                minQueryDist = dist;
-                closestId = id;
+                // EKLENEN: Duvar arkasındaki düğümleri seçme
+                let blocked = false;
+                if (walls.length > 0) {
+                    for (let wall of walls) {
+                        if (doSegmentsIntersect({x, y}, pos, wall.a, wall.b)) {
+                            blocked = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!blocked) {
+                    minQueryDist = dist;
+                    closestId = id;
+                }
             }
         }
         return closestId;
@@ -47,16 +61,31 @@ export class Graph {
     }
 }
 
+/**
+ * İki çizgi segmentinin kesişip kesişmediğini kontrol eder.
+ */
+function doSegmentsIntersect(p1, p2, p3, p4) {
+    const den = (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
+    if (den === 0) return false; // Paralel
+
+    const ua = ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) / den;
+    const ub = ((p2.x - p1.x) * (p1.y - p3.y) - (p2.y - p1.y) * (p1.x - p3.x)) / den;
+
+    // Segmentler üzerinde mi? (0.01 payı ile)
+    return (ua > 0 && ua < 1 && ub > 0 && ub < 1);
+}
+
 export function buildNavigationGraph(walls, mapWidth, mapHeight) {
     const navGraph = new Graph();
-    const cellSize = 40; // Hassas yol takibi için düğüm aralığını 40 yaptık
+    const cellSize = 40; 
 
+    // 1. Düğümleri oluştur
     for (let x = 70; x < mapWidth - 50; x += cellSize) {
         for (let y = 70; y < mapHeight - 50; y += cellSize) {
             
             let insideWall = false;
             for (let seg of walls) {
-                if (pointToSegmentDistance({ x, y }, seg) < 22) {
+                if (pointToSegmentDistance({ x, y }, seg) < 25) {
                     insideWall = true;
                     break;
                 }
@@ -69,14 +98,32 @@ export function buildNavigationGraph(walls, mapWidth, mapHeight) {
         }
     }
 
+    // 2. Kenarları (Edges) oluştur ve duvar kontrolü yap
     for (let [id1, p1] of navGraph.nodes.entries()) {
-        for (let [id2, p2] of navGraph.nodes.entries()) {
-            if (id1 === id2) continue;
-            const dx = Math.abs(p1.x - p2.x);
-            const dy = Math.abs(p1.y - p2.y);
-            
-            if ((dx === cellSize && dy === 0) || (dx === 0 && dy === cellSize)) {
-                navGraph.addEdge(id1, id2);
+        const neighbors = [
+            {x: p1.x + cellSize, y: p1.y},
+            {x: p1.x - cellSize, y: p1.y},
+            {x: p1.x, y: p1.y + cellSize},
+            {x: p1.x, y: p1.y - cellSize}
+        ];
+
+        for (let nPos of neighbors) {
+            const id2 = `${nPos.x}_${nPos.y}`;
+            if (navGraph.nodes.has(id2)) {
+                const p2 = navGraph.nodes.get(id2);
+                
+                // Duvar engeli kontrolü
+                let crossesWall = false;
+                for (let wall of walls) {
+                    if (doSegmentsIntersect(p1, p2, wall.a, wall.b)) {
+                        crossesWall = true;
+                        break;
+                    }
+                }
+
+                if (!crossesWall) {
+                    navGraph.addEdge(id1, id2);
+                }
             }
         }
     }
