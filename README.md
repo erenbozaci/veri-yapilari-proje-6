@@ -93,7 +93,133 @@ Projenin modüler dosya yapısı aşağıdaki gibidir:
 └── README.md
 ```
 
-## 6. Üretken Yapay Zeka (GenAI) Kullanım Dökümü
+```mermaid
+classDiagram
+    class Game {
+        +canvas: HTMLCanvasElement
+        +ctx: CanvasRenderingContext2D
+        +player: Player
+        +enemies: Enemy[]
+        +mapInstance: Map
+        +walls: Segment[]
+        +bspRoot: BSPNode
+        +raycaster: Raycaster
+        +fov: FOV
+        +navGraph: Graph
+        +renderer: Renderer
+        +gameState: String
+        +update(dt: Number)
+        +render()
+        +_checkAndCorrectWallCollision(pos, radius)
+    }
+
+    class Renderer {
+        +ctx: CanvasRenderingContext2D
+        +clear(width, height)
+        +drawWalls(walls)
+        +drawPlayer(player)
+        +drawEnemies(enemies, timer)
+        +drawRealisticFlashlight(origin, points)
+    }
+
+    class Player {
+        +pos: Point
+        +radius: Number
+        +speed: Number
+        +update(dt, keys, walls)
+    }
+
+    class Enemy {
+        +pos: Point
+        +angle: Number
+        +radius: Number
+        +state: String
+        +path: Waypoint[]
+        +draw(ctx)
+    }
+
+    class Map {
+        +width: Number
+        +height: Number
+        +getWalls() : Segment[]
+    }
+
+    class BSPBuilder {
+        +buildTree(segments) : BSPNode
+    }
+
+    class BSPNode {
+        +partition: Segment
+        +front: BSPNode
+        +back: BSPNode
+        +segments: Segment[]
+        +isLeaf() : Boolean
+    }
+
+    class Raycaster {
+        +root: BSPNode
+        +castRay(origin, angle) : Hit
+        +_traverse(node, p1, p2)
+    }
+
+    class FOV {
+        +raycaster: Raycaster
+        +isInFOV(origin, angle, fovAngle, targetPos) : Boolean
+        +compute(origin) : Point[]
+    }
+
+    class Graph {
+        +nodes: Map~Id, Point~
+        +adjacencyList: Map~Id, Id[]~
+        +addNode(id, x, y)
+        +addEdge(id1, id2)
+        +getClosestNode(x, y, walls) : Id
+    }
+
+    class Segment {
+        +a: Point
+        +b: Point
+        +getLength() : Number
+    }
+
+    class Point {
+        +x: Number
+        +y: Number
+    }
+
+    %% İlişkiler
+    Game "1" *-- "1" Renderer : kullanır
+    Game "1" *-- "1" Player : içerir
+    Game "1" *-- "n" Enemy : içerir
+    Game "1" *-- "1" Map : içerir
+    Game "1" *-- "1" BSPNode : kök düğüme sahiptir
+    Game "1" *-- "1" Raycaster : kullanır
+    Game "1" *-- "1" FOV : kullanır
+    Game "1" *-- "1" Graph : kullanır
+    
+    Raycaster "1" o-- "1" BSPNode : gezer (traverse)
+    FOV "1" o-- "1" Raycaster : kullanır
+    Enemy "1" o-- "n" Point : yolu takip eder
+    Segment "1" *-- "2" Point : noktalardan oluşur
+    BSPNode "1" *-- "n" Segment : duvarları saklar
+    BSPBuilder ..> BSPNode : oluşturur
+```
+## 6. Temel Mimari Kararlar
+
+### 6.1 Mantık ve Görselleştirmenin Ayrılması (Separation of Logic and Rendering)
+`Game` sınıfı bir orkestra şefi (orchestrator) görevi görür. Oyun döngüsünü ve durumunu yönetir, ancak görsel çizim işlerini `Renderer` sınıfına devreder. Bu, temel oyun mekaniklerini etkilemeden görsel stilin kolayca değiştirilmesine olanak tanır.
+
+### 6.2 Uzamsal Bölümleme için BSP Ağacı (BSP Tree for Spatial Partitioning)
+Çevre, duvar segmentlerini organize etmek için bir **İkili Uzay Bölümleme (Binary Space Partitioning - BSP)** ağacı kullanır. Bu, `Raycaster` modülünün ışın kesişim testlerini her duvarla tek tek yapmak yerine, ışının menzilinde olmayan ağaç dallarını budayarak (pruning) **O(log N)** süresinde yapmasını sağlar.
+
+### 6.3 Navigasyon Grafı ve A* (Navigation Graph & A*)
+Yol bulma mekanizması, fizik motorundan bağımsızdır. Başlangıçta ızgara tabanlı bir **Navigasyon Grafı** oluşturulur. Bu graf sadece yürünebilir alanlardaki düğümleri içerir ve kenarlar (edges) yalnızca duvarlarla kesişmiyorsa oluşturulur. A* algoritması, öncelik kuyruğu işlemleri için özel olarak yazılmış bir **Min-Heap** yapısı kullanır.
+
+### 6.4 Görüş ve Engel Yönetimi (Vision & Occlusion)
+`FOV` sınıfı, Görüş Hattı (Line of Sight - LOS) kontrolleri için birleşik bir arayüz sağlar. Bir hedefin görünür olup olmadığını belirlemek için BSP tabanlı `Raycaster`'ı kullanır. Bu sayede duvarların hem yapay zeka algısını hem de görsel ışık efektlerini doğru bir şekilde engellemesi garanti edilir.
+
+
+## 7. Üretken Yapay Zeka (GenAI) Kullanım Dökümü
 
 Geliştirme sürecinde matematiksel formüllerin sağlamasını yapmak ve test haritaları oluşturmak için yapay zeka araçlarından destek alınmıştır. Kullanılan bazı prompt örnekleri:
 
